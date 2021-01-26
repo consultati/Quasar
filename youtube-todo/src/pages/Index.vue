@@ -30,6 +30,7 @@
 </template>
 
 <script>
+import { db} from "boot/firebase";
 export default {
   // Default Page Index
   // name: 'PageIndex'  
@@ -37,13 +38,38 @@ export default {
     return {
       editor: '',
       tasks: [
-        // {texto: 'Tarefa #1', estado: false},
-       // {texto: 'Tarefa #2', estado: true},
-       // {texto: 'Tarefa #3', estado: false}
+       // {
+       //   id: 'QQabqaXfSLni3y6bMzuD', texto: 'ABC', estado: false
+       // },
+       // {
+       //   id: 'def', texto: 'DEF', estado: true
+       // }
       ]
     }
   },
+  created() {
+    this.listarTarefas();
+  },
   methods: {
+    async listarTarefas(){
+      try {
+
+        const resDB = await db.collection('tarefas').get()
+
+        resDB.forEach(element => {
+          console.log(element.id);
+          const tarefa = {
+            id: element.id,
+            texto: element.data().texto,
+            estado: element.data().estado
+          }
+          this.tasks.push(tarefa)
+        });
+
+      } catch (error) {
+        console.log(error);
+      }
+    },
     saveWork () {
       this.tasks.push({
         texto: this.editor,
