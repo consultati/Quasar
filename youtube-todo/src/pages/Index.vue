@@ -1,6 +1,6 @@
 <template>
   <div class="q-pa-md q-gutter-sm">
-    <q-editor
+    <q-editor v-if="!modoEdicao"
       v-model="editor"
       :definitions="{
         save: {
@@ -15,11 +15,29 @@
         ['upload', 'save']
       ]"
     />    
+
+     <q-editor v-else
+      v-model="editor"
+      :definitions="{
+        save: {
+          tip: 'Atualizar nota',
+          icon: 'save',
+          label: 'Atualizar',
+          handler: updateWork
+        }
+      }"
+      :toolbar="[
+        ['bold', 'italic', 'strike', 'underline'],
+        ['upload', 'save']
+      ]"
+    />    
+
     <q-card class="row"
       flat bordered v-for="(item, index) in tasks" :key="index">
       <q-card-section class="col" v-html="item.texto" :class="item.estado ? 'tachar' : ''" />
-      <q-btn flat color="blue" @click="item.estado = !item.estado">Ação</q-btn>
-      <q-btn flat color="red" @click="eliminar(index)">Eliminar</q-btn>
+      <!-- <q-btn flat color="blue" @click="item.estado = !item.estado">Ação</q-btn> -->
+      <q-btn flat color="primary" @click="editar(index, item.id)">Editar</q-btn>
+      <q-btn flat color="red" @click="eliminar(index, item.id)">Eliminar</q-btn>
     </q-card>
 
     <div class="flex flex-center" v-if="tasks.length == 0">
@@ -37,20 +55,49 @@ export default {
   data() {
     return {
       editor: '',
-      tasks: [
-       // {
-       //   id: 'QQabqaXfSLni3y6bMzuD', texto: 'ABC', estado: false
-       // },
-       // {
-       //   id: 'def', texto: 'DEF', estado: true
-       // }
-      ]
+      tasks: [],
+      index: null,
+      modoEdicao: false,
+      id: null
     }
   },
   created() {
     this.listarTarefas();
   },
   methods: {
+    async updateWork(){
+      
+      try {
+        
+        const resDB = await db.collection('tarefas').doc(this.id).update({
+          texto: this.editor
+        })
+
+        this.tasks[this.index].texto = this.editor
+
+        this.$q.notify({
+          message: 'Sua tarefa foi atualizada',
+          color: 'positive',
+          textColor: 'white',
+          icon: 'cloud_done'
+        })    
+
+      } catch (error) {
+        console.log(error);
+      } finally {
+        this.modoEdicao = false;
+        this.index = null;
+        this.id = null;
+        this.editor = ''
+      }
+
+    },
+    editar(index, id){
+      this.modoEdicao = true;
+      this.index = index;
+      this.id = id;
+      this.editor = this.tasks[index].texto
+    },
     async listarTarefas(){
       try {
 
@@ -70,27 +117,50 @@ export default {
         console.log(error);
       }
     },
-    saveWork () {
-      this.tasks.push({
-        texto: this.editor,
-        estado: false
-      })
-      this.$q.notify({
-        message: 'Sua tarefa está salva',
-        color: 'green-4',
-        textColor: 'white',
-        icon: 'cloud_done'
-      })
+    async saveWork () {
+
+      try {
+
+        const resDB = await db.collection('tarefas').add({
+          texto: this.editor,
+          estado: false
+        })
+        this.tasks.push({
+          texto: this.editor,
+          estado: false,
+          id: resDB.id
+        })
+        this.editor = ''
+        this.$q.notify({
+          message: 'Sua tarefa está salva',
+          color: 'green-4',
+          textColor: 'white',
+          icon: 'cloud_done'
+        })        
+      } catch (error) {
+        console.log(error);
+      }
+
     },
-    eliminar(index) {
+    async eliminar(index, id) {
+      
       this.$q.dialog({
         title: 'Ação Perigosa',
         message: 'Realmente quer eliminar a tarefa?',
         cancel: true,
         persistent: true
-      }).onOk(() => {
-      this.tasks.splice(index, 1);
+      }).onOk(async () => {
         // console.log('>>> OK')
+
+      try {
+
+        await db.collection('tarefas').doc(id).delete()
+        this.tasks.splice(index, 1);
+        
+      } catch (error) {
+        console.log(error);
+      }
+
       })     
     }
   }
